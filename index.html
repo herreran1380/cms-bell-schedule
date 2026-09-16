@@ -1,0 +1,1445 @@
+<script>
+  (function() {
+    'use strict';
+
+    /* -------------------------------------------------------------
+     * TIME CONVERSION HELPERS
+     * Times are converted to Minutes from Midnight (0 - 1439)
+     * ------------------------------------------------------------- */
+    function timeToMin(h, m, isPM) {
+      let hour = h;
+      if (isPM && hour !== 12) hour += 12;
+      if (!isPM && hour === 12) hour = 0;
+      return hour * 60 + m;
+    }
+
+    function minTo12H(totalMinutes) {
+      let h = Math.floor(totalMinutes / 60) % 24;
+      let m = Math.floor(totalMinutes % 60);
+      let suffix = h >= 12 ? 'PM' : 'AM';
+      let displayH = h % 12;
+      if (displayH === 0) displayH = 12;
+      let displayM = m < 10 ? '0' + m : m;
+      return `${displayH}:${displayM} ${suffix}`;
+    }
+
+    function formatDuration(sec) {
+      if (sec <= 0) return "00:00";
+      let m = Math.floor(sec / 60);
+      let s = Math.floor(sec % 60);
+      return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+    }
+
+    function formatHoursMins(totalSec) {
+      if (totalSec <= 0) return "0m";
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      if (h === 0) return `${m}m`;
+      return `${h}h ${m < 10 ? '0' + m : m}m`;
+    }
+
+    const TEAMS = ["6A / 6C", "6B / 7B", "7A / 7C", "8B / 8C", "8A"];
+
+    // Default periods definition
+    const PERIOD_KEYS = [
+      "advisory", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9"
+    ];
+
+    const DEFAULT_PERIOD_LABELS = {
+      "advisory": "Advisory",
+      "p1": "1st Period",
+      "p2": "2nd Period",
+      "p3": "3rd Period",
+      "p4": "4th Period",
+      "p5": "5th Period",
+      "p6": "6th Period",
+      "p7": "7th Period",
+      "p8": "8th Period",
+      "p9": "9th Period"
+    };
+
+    /* NORMAL SCHEDULE */
+    const SCHEDULE_NORMAL = {
+      openTimeMin: timeToMin(8, 55, false), // 8:55 AM
+      closeTimeMin: timeToMin(3, 40, true), // 3:40 PM
+      teams: {
+        "6A / 6C": [
+          { type: 'class', period: 'advisory', start: timeToMin(8,55,false), end: timeToMin(9,15,false), label: 'Advisory' },
+          { type: 'passing', from: 'Advisory', to: '1st Period', start: timeToMin(9,15,false), end: timeToMin(9,19,false) },
+          { type: 'class', period: 'p1', start: timeToMin(9,19,false), end: timeToMin(9,59,false), label: '1st Period' },
+          { type: 'passing', from: '1st Period', to: '2nd Period', start: timeToMin(9,59,false), end: timeToMin(10,3,false) },
+          { type: 'class', period: 'p2', start: timeToMin(10,3,false), end: timeToMin(10,43,false), label: '2nd Period' },
+          { type: 'passing', from: '2nd Period', to: 'Lunch Block', start: timeToMin(10,43,false), end: timeToMin(10,47,false) },
+          { type: 'lunch', period: 'p3', start: timeToMin(10,47,false), end: timeToMin(11,17,false), label: 'Lunch Block (6th Grade)' },
+          { type: 'passing', from: 'Lunch Block', to: '4th Period', start: timeToMin(11,17,false), end: timeToMin(11,21,false) },
+          { type: 'class', period: 'p4', start: timeToMin(11,21,false), end: timeToMin(12,1,true), label: '4th Period' },
+          { type: 'passing', from: '4th Period', to: '5th Period', start: timeToMin(12,1,true), end: timeToMin(12,5,true) },
+          { type: 'class', period: 'p5', start: timeToMin(12,5,true), end: timeToMin(12,45,true), label: '5th Period' },
+          { type: 'passing', from: '5th Period', to: '6th Period', start: timeToMin(12,45,true), end: timeToMin(12,49,true) },
+          { type: 'class', period: 'p6', start: timeToMin(12,49,true), end: timeToMin(1,29,true), label: '6th Period' },
+          { type: 'passing', from: '6th Period', to: '7th Period', start: timeToMin(1,29,true), end: timeToMin(1,33,true) },
+          { type: 'class', period: 'p7', start: timeToMin(1,33,true), end: timeToMin(2,13,true), label: '7th Period' },
+          { type: 'passing', from: '7th Period', to: '8th Period', start: timeToMin(2,13,true), end: timeToMin(2,17,true) },
+          { type: 'class', period: 'p8', start: timeToMin(2,17,true), end: timeToMin(2,57,true), label: '8th Period' },
+          { type: 'passing', from: '8th Period', to: '9th Period', start: timeToMin(2,57,true), end: timeToMin(3,0,true) },
+          { type: 'class', period: 'p9', start: timeToMin(3,0,true), end: timeToMin(3,40,true), label: '9th Period' },
+        ],
+        "6B / 7B": [
+          { type: 'class', period: 'advisory', start: timeToMin(8,55,false), end: timeToMin(9,15,false), label: 'Advisory' },
+          { type: 'passing', from: 'Advisory', to: '1st Period', start: timeToMin(9,15,false), end: timeToMin(9,19,false) },
+          { type: 'class', period: 'p1', start: timeToMin(9,19,false), end: timeToMin(9,59,false), label: '1st Period' },
+          { type: 'passing', from: '1st Period', to: '2nd Period', start: timeToMin(9,59,false), end: timeToMin(10,3,false) },
+          { type: 'class', period: 'p2', start: timeToMin(10,3,false), end: timeToMin(10,43,false), label: '2nd Period' },
+          { type: 'passing', from: '2nd Period', to: '3rd Period', start: timeToMin(10,43,false), end: timeToMin(10,47,false) },
+          { type: 'class', period: 'p3', start: timeToMin(10,47,false), end: timeToMin(11,27,false), label: '3rd Period' },
+          { type: 'passing', from: '3rd Period', to: 'Lunch Block', start: timeToMin(11,27,false), end: timeToMin(11,31,false) },
+          { type: 'lunch', period: 'p4', start: timeToMin(11,31,false), end: timeToMin(12,1,true), label: 'Lunch Block (6B/7B)' },
+          { type: 'passing', from: 'Lunch Block', to: '5th Period', start: timeToMin(12,1,true), end: timeToMin(12,5,true) },
+          { type: 'class', period: 'p5', start: timeToMin(12,5,true), end: timeToMin(12,45,true), label: '5th Period' },
+          { type: 'passing', from: '5th Period', to: '6th Period', start: timeToMin(12,45,true), end: timeToMin(12,49,true) },
+          { type: 'class', period: 'p6', start: timeToMin(12,49,true), end: timeToMin(1,29,true), label: '6th Period' },
+          { type: 'passing', from: '6th Period', to: '7th Period', start: timeToMin(1,29,true), end: timeToMin(1,33,true) },
+          { type: 'class', period: 'p7', start: timeToMin(1,33,true), end: timeToMin(2,13,true), label: '7th Period' },
+          { type: 'passing', from: '7th Period', to: '8th Period', start: timeToMin(2,13,true), end: timeToMin(2,17,true) },
+          { type: 'class', period: 'p8', start: timeToMin(2,17,true), end: timeToMin(2,57,true), label: '8th Period' },
+          { type: 'passing', from: '8th Period', to: '9th Period', start: timeToMin(2,57,true), end: timeToMin(3,0,true) },
+          { type: 'class', period: 'p9', start: timeToMin(3,0,true), end: timeToMin(3,40,true), label: '9th Period' },
+        ],
+        "7A / 7C": [
+          { type: 'class', period: 'advisory', start: timeToMin(8,55,false), end: timeToMin(9,15,false), label: 'Advisory' },
+          { type: 'passing', from: 'Advisory', to: '1st Period', start: timeToMin(9,15,false), end: timeToMin(9,19,false) },
+          { type: 'class', period: 'p1', start: timeToMin(9,19,false), end: timeToMin(9,59,false), label: '1st Period' },
+          { type: 'passing', from: '1st Period', to: '2nd Period', start: timeToMin(9,59,false), end: timeToMin(10,3,false) },
+          { type: 'class', period: 'p2', start: timeToMin(10,3,false), end: timeToMin(10,43,false), label: '2nd Period' },
+          { type: 'passing', from: '2nd Period', to: '3rd Period', start: timeToMin(10,43,false), end: timeToMin(10,47,false) },
+          { type: 'class', period: 'p3', start: timeToMin(10,47,false), end: timeToMin(11,27,false), label: '3rd Period' },
+          { type: 'passing', from: '3rd Period', to: '4th Period', start: timeToMin(11,27,false), end: timeToMin(11,31,false) },
+          { type: 'class', period: 'p4', start: timeToMin(11,31,false), end: timeToMin(12,11,true), label: '4th Period' },
+          { type: 'passing', from: '4th Period', to: 'Lunch Block', start: timeToMin(12,11,true), end: timeToMin(12,15,true) },
+          { type: 'lunch', period: 'p5', start: timeToMin(12,15,true), end: timeToMin(12,45,true), label: 'Lunch Block (7A/7C)' },
+          { type: 'passing', from: 'Lunch Block', to: '6th Period', start: timeToMin(12,45,true), end: timeToMin(12,49,true) },
+          { type: 'class', period: 'p6', start: timeToMin(12,49,true), end: timeToMin(1,29,true), label: '6th Period' },
+          { type: 'passing', from: '6th Period', to: '7th Period', start: timeToMin(1,29,true), end: timeToMin(1,33,true) },
+          { type: 'class', period: 'p7', start: timeToMin(1,33,true), end: timeToMin(2,13,true), label: '7th Period' },
+          { type: 'passing', from: '7th Period', to: '8th Period', start: timeToMin(2,13,true), end: timeToMin(2,17,true) },
+          { type: 'class', period: 'p8', start: timeToMin(2,17,true), end: timeToMin(2,57,true), label: '8th Period' },
+          { type: 'passing', from: '8th Period', to: '9th Period', start: timeToMin(2,57,true), end: timeToMin(3,0,true) },
+          { type: 'class', period: 'p9', start: timeToMin(3,0,true), end: timeToMin(3,40,true), label: '9th Period' },
+        ],
+        "8B / 8C": [
+          { type: 'class', period: 'advisory', start: timeToMin(8,55,false), end: timeToMin(9,15,false), label: 'Advisory' },
+          { type: 'passing', from: 'Advisory', to: '1st Period', start: timeToMin(9,15,false), end: timeToMin(9,19,false) },
+          { type: 'class', period: 'p1', start: timeToMin(9,19,false), end: timeToMin(9,59,false), label: '1st Period' },
+          { type: 'passing', from: '1st Period', to: '2nd Period', start: timeToMin(9,59,false), end: timeToMin(10,3,false) },
+          { type: 'class', period: 'p2', start: timeToMin(10,3,false), end: timeToMin(10,43,false), label: '2nd Period' },
+          { type: 'passing', from: '2nd Period', to: '3rd Period', start: timeToMin(10,43,false), end: timeToMin(10,47,false) },
+          { type: 'class', period: 'p3', start: timeToMin(10,47,false), end: timeToMin(11,27,false), label: '3rd Period' },
+          { type: 'passing', from: '3rd Period', to: '4th Period', start: timeToMin(11,27,false), end: timeToMin(11,31,false) },
+          { type: 'class', period: 'p4', start: timeToMin(11,31,false), end: timeToMin(12,11,true), label: '4th Period' },
+          { type: 'passing', from: '4th Period', to: '5th Period', start: timeToMin(12,11,true), end: timeToMin(12,15,true) },
+          { type: 'class', period: 'p5', start: timeToMin(12,15,true), end: timeToMin(12,55,true), label: '5th Period' },
+          { type: 'passing', from: '5th Period', to: 'Lunch Block', start: timeToMin(12,55,true), end: timeToMin(12,59,true) },
+          { type: 'lunch', period: 'p6', start: timeToMin(12,59,true), end: timeToMin(1,29,true), label: 'Lunch Block (8B/8C)' },
+          { type: 'passing', from: 'Lunch Block', to: '7th Period', start: timeToMin(1,29,true), end: timeToMin(1,33,true) },
+          { type: 'class', period: 'p7', start: timeToMin(1,33,true), end: timeToMin(2,13,true), label: '7th Period' },
+          { type: 'passing', from: '7th Period', to: '8th Period', start: timeToMin(2,13,true), end: timeToMin(2,17,true) },
+          { type: 'class', period: 'p8', start: timeToMin(2,17,true), end: timeToMin(2,57,true), label: '8th Period' },
+          { type: 'passing', from: '8th Period', to: '9th Period', start: timeToMin(2,57,true), end: timeToMin(3,0,true) },
+          { type: 'class', period: 'p9', start: timeToMin(3,0,true), end: timeToMin(3,40,true), label: '9th Period' },
+        ],
+        "8A": [
+          { type: 'class', period: 'advisory', start: timeToMin(8,55,false), end: timeToMin(9,15,false), label: 'Advisory' },
+          { type: 'passing', from: 'Advisory', to: '1st Period', start: timeToMin(9,15,false), end: timeToMin(9,19,false) },
+          { type: 'class', period: 'p1', start: timeToMin(9,19,false), end: timeToMin(9,59,false), label: '1st Period' },
+          { type: 'passing', from: '1st Period', to: '2nd Period', start: timeToMin(9,59,false), end: timeToMin(10,3,false) },
+          { type: 'class', period: 'p2', start: timeToMin(10,3,false), end: timeToMin(10,43,false), label: '2nd Period' },
+          { type: 'passing', from: '2nd Period', to: '3rd Period', start: timeToMin(10,43,false), end: timeToMin(10,47,false) },
+          { type: 'class', period: 'p3', start: timeToMin(10,47,false), end: timeToMin(11,27,false), label: '3rd Period' },
+          { type: 'passing', from: '3rd Period', to: '4th Period', start: timeToMin(11,27,false), end: timeToMin(11,31,false) },
+          { type: 'class', period: 'p4', start: timeToMin(11,31,false), end: timeToMin(12,11,true), label: '4th Period' },
+          { type: 'passing', from: '4th Period', to: '5th Period', start: timeToMin(12,11,true), end: timeToMin(12,15,true) },
+          { type: 'class', period: 'p5', start: timeToMin(12,15,true), end: timeToMin(12,55,true), label: '5th Period' },
+          { type: 'passing', from: '5th Period', to: '6th Period', start: timeToMin(12,55,true), end: timeToMin(12,59,true) },
+          { type: 'class', period: 'p6', start: timeToMin(12,59,true), end: timeToMin(1,39,true), label: '6th Period' },
+          { type: 'passing', from: '6th Period', to: 'Lunch Block', start: timeToMin(1,39,true), end: timeToMin(1,43,true) },
+          { type: 'lunch', period: 'p7', start: timeToMin(1,43,true), end: timeToMin(2,13,true), label: 'Lunch Block (8A)' },
+          { type: 'passing', from: 'Lunch Block', to: '8th Period', start: timeToMin(2,13,true), end: timeToMin(2,17,true) },
+          { type: 'class', period: 'p8', start: timeToMin(2,17,true), end: timeToMin(2,57,true), label: '8th Period' },
+          { type: 'passing', from: '8th Period', to: '9th Period', start: timeToMin(2,57,true), end: timeToMin(3,0,true) },
+          { type: 'class', period: 'p9', start: timeToMin(3,0,true), end: timeToMin(3,40,true), label: '9th Period' },
+        ]
+      }
+    };
+
+    /* LATE START SCHEDULE (Universal for All Teams) */
+    const LATE_START_UNIVERSAL_SLOTS = [
+      { type: 'class', period: 'p1', start: timeToMin(10,55,false), end: timeToMin(11,23,false), label: '1st Period' },
+      { type: 'passing', from: '1st Period', to: '2nd Period', start: timeToMin(11,23,false), end: timeToMin(11,27,false) },
+      { type: 'class', period: 'p2', start: timeToMin(11,27,false), end: timeToMin(11,55,false), label: '2nd Period' },
+      { type: 'passing', from: '2nd Period', to: '3rd Period', start: timeToMin(11,55,false), end: timeToMin(11,59,false) },
+      { type: 'class', period: 'p3', start: timeToMin(11,59,false), end: timeToMin(12,28,true), label: '3rd Period' },
+      { type: 'passing', from: '3rd Period', to: '4th Period', start: timeToMin(12,28,true), end: timeToMin(12,32,true) },
+      { type: 'class', period: 'p4', start: timeToMin(12,32,true), end: timeToMin(1,2,true), label: '4th Period' },
+      { type: 'passing', from: '4th Period', to: '5th Period', start: timeToMin(1,2,true), end: timeToMin(1,6,true) },
+      { type: 'class', period: 'p5', start: timeToMin(1,6,true), end: timeToMin(1,36,true), label: '5th Period' },
+      { type: 'passing', from: '5th Period', to: '6th Period', start: timeToMin(1,36,true), end: timeToMin(1,40,true) },
+      { type: 'class', period: 'p6', start: timeToMin(1,40,true), end: timeToMin(2,10,true), label: '6th Period' },
+      { type: 'passing', from: '6th Period', to: '7th Period', start: timeToMin(2,10,true), end: timeToMin(2,14,true) },
+      { type: 'class', period: 'p7', start: timeToMin(2,14,true), end: timeToMin(2,44,true), label: '7th Period' },
+      { type: 'passing', from: '7th Period', to: '8th Period', start: timeToMin(2,44,true), end: timeToMin(2,48,true) },
+      { type: 'class', period: 'p8', start: timeToMin(2,48,true), end: timeToMin(3,10,true), label: '8th Period' },
+      { type: 'passing', from: '8th Period', to: '9th Period', start: timeToMin(3,10,true), end: timeToMin(3,14,true) },
+      { type: 'class', period: 'p9', start: timeToMin(3,14,true), end: timeToMin(3,40,true), label: '9th Period' },
+    ];
+
+    const SCHEDULE_LATE_START = {
+      openTimeMin: timeToMin(10, 55, false), // 10:55 AM
+      closeTimeMin: timeToMin(3, 40, true), // 3:40 PM
+      teams: {
+        "6A / 6C": LATE_START_UNIVERSAL_SLOTS,
+        "6B / 7B": LATE_START_UNIVERSAL_SLOTS,
+        "7A / 7C": LATE_START_UNIVERSAL_SLOTS,
+        "8B / 8C": LATE_START_UNIVERSAL_SLOTS,
+        "8A": LATE_START_UNIVERSAL_SLOTS,
+      }
+    };
+
+    /* -------------------------------------------------------------
+     * STATE & LOCALSTORAGE PERSISTENCE
+     * ------------------------------------------------------------- */
+    const STORAGE_KEY = 'school_schedule_settings_v1';
+
+    let state = {
+      scheduleMode: 'normal', // 'normal' | 'late'
+      customLabels: {},       // { p1: "Algebra I", ... }
+      roomNumbers: {},        // { p1: "Rm 204", ... }
+      audioEnabled: true,
+      teamFocus: 'all',       // 'all' | team name
+      theme: 'dark',          // 'dark' | 'light'
+      simulatedMinutes: null, // null = live Date(), or number 0-1439
+    };
+
+    function loadSettings() {
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashConfig = window.location.hash.slice(1);
+        const configPayload = urlParams.get('config') || (hashConfig.startsWith('config=') ? hashConfig.split('config=')[1] : null);
+        
+        if (configPayload) {
+          try {
+            const decoded = JSON.parse(decodeURIComponent(atob(configPayload)));
+            if (decoded && typeof decoded === 'object') {
+              state = { ...state, ...decoded };
+              saveSettings();
+              showToast("Configuration imported from share link!", "success");
+              if (window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname);
+              }
+              return;
+            }
+          } catch (e) {
+            console.warn("Could not parse configuration from link payload", e);
+          }
+        }
+
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state = { ...state, ...parsed };
+        }
+      } catch (err) {
+        console.error("Error reading localStorage:", err);
+      }
+    }
+
+    function saveSettings() {
+      try {
+        const toSave = {
+          scheduleMode: state.scheduleMode,
+          customLabels: state.customLabels,
+          roomNumbers: state.roomNumbers,
+          audioEnabled: state.audioEnabled,
+          teamFocus: state.teamFocus,
+          theme: state.theme,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      } catch (err) {
+        console.error("Error writing localStorage:", err);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * WEB AUDIO API: SYNTHESIZED 2-MINUTE WARNING CHIME
+     * Self-contained, zero external audio dependencies
+     * ------------------------------------------------------------- */
+    let audioCtx = null;
+    let lastChimePlayedKey = null;
+
+    function playWarningChime() {
+      if (!state.audioEnabled) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        
+        // Tone 1: 659.25 Hz (E5)
+        const osc1 = audioCtx.createOscillator();
+        const gain1 = audioCtx.createGain();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(659.25, now);
+        gain1.gain.setValueAtTime(0, now);
+        gain1.gain.linearRampToValueAtTime(0.25, now + 0.05);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        osc1.connect(gain1);
+        gain1.connect(audioCtx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.85);
+
+        // Tone 2: 880 Hz (A5)
+        const osc2 = audioCtx.createOscillator();
+        const gain2 = audioCtx.createGain();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(880, now + 0.25);
+        gain2.gain.setValueAtTime(0, now + 0.25);
+        gain2.gain.linearRampToValueAtTime(0.3, now + 0.3);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+        osc2.connect(gain2);
+        gain2.connect(audioCtx.destination);
+        osc2.start(now + 0.25);
+        osc2.stop(now + 1.25);
+
+      } catch (e) {
+        console.warn("Web Audio chime playback error:", e);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * TOAST NOTIFICATIONS
+     * ------------------------------------------------------------- */
+    let toastTimer = null;
+    function showToast(msg, type = 'info') {
+      const toastEl = document.getElementById('toastNotification');
+      const msgEl = document.getElementById('toastMessage');
+      const iconEl = document.getElementById('toastIcon');
+      if (!toastEl || !msgEl) return;
+
+      msgEl.textContent = msg;
+      if (type === 'success') {
+        iconEl.setAttribute('data-lucide', 'check-circle');
+        iconEl.className = 'w-5 h-5 text-emerald-400 flex-shrink-0';
+      } else if (type === 'error') {
+        iconEl.setAttribute('data-lucide', 'alert-circle');
+        iconEl.className = 'w-5 h-5 text-red-400 flex-shrink-0';
+      } else {
+        iconEl.setAttribute('data-lucide', 'info');
+        iconEl.className = 'w-5 h-5 text-blue-400 flex-shrink-0';
+      }
+
+      if (window.lucide) lucide.createIcons();
+
+      clearTimeout(toastTimer);
+      toastEl.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+      toastEl.classList.add('translate-y-0', 'opacity-100');
+
+      toastTimer = setTimeout(() => {
+        toastEl.classList.remove('translate-y-0', 'opacity-100');
+        toastEl.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+      }, 3200);
+    }
+
+    /* -------------------------------------------------------------
+     * TIME EVALUATION ENGINE & GROUPING LOGIC
+     * ------------------------------------------------------------- */
+    function getCurrentTimeInfo() {
+      const now = new Date();
+      const isSimulated = state.simulatedMinutes !== null;
+      
+      let totalMinutes;
+      let seconds;
+      let dayOfWeek = now.getDay(); // 0 = Sun, 6 = Sat
+
+      if (isSimulated) {
+        totalMinutes = state.simulatedMinutes;
+        seconds = 0;
+        dayOfWeek = 1;
+      } else {
+        totalMinutes = now.getHours() * 60 + now.getMinutes();
+        seconds = now.getSeconds();
+      }
+
+      return {
+        now,
+        totalMinutes,
+        seconds,
+        isSimulated,
+        dayOfWeek,
+        formattedTime: isSimulated 
+          ? `${minTo12H(totalMinutes)} (Simulated)` 
+          : now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
+        formattedDate: now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      };
+    }
+
+    function evaluateTeamStatus(teamName, currentMin, currentSec, schedule) {
+      const slots = schedule.teams[teamName];
+      if (!slots || slots.length === 0) return null;
+
+      const openMin = schedule.openTimeMin;
+      const closeMin = schedule.closeTimeMin;
+
+      if (currentMin < openMin) {
+        return {
+          type: 'off_hours',
+          state: 'before_school',
+          title: 'School Closed',
+          subtitle: `Classes resume today at ${minTo12H(openMin)}`,
+          periodKey: 'closed',
+          startMin: 0,
+          endMin: openMin,
+          remainingSec: (openMin - currentMin) * 60 - currentSec,
+          totalSec: openMin * 60,
+          progressPct: 0,
+        };
+      }
+
+      if (currentMin >= closeMin) {
+        return {
+          type: 'off_hours',
+          state: 'after_school',
+          title: 'School Closed',
+          subtitle: state.scheduleMode === 'late' ? 'Classes resume tomorrow at 10:55 AM' : 'Classes resume tomorrow at 8:55 AM',
+          periodKey: 'closed',
+          startMin: closeMin,
+          endMin: 1440,
+          remainingSec: 0,
+          totalSec: 0,
+          progressPct: 100,
+        };
+      }
+
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        if (currentMin >= slot.start && currentMin < slot.end) {
+          const startSec = slot.start * 60;
+          const endSec = slot.end * 60;
+          const curSec = currentMin * 60 + currentSec;
+          const elapsed = curSec - startSec;
+          const total = endSec - startSec;
+          const remaining = Math.max(0, total - elapsed);
+          const progressPct = Math.min(100, Math.max(0, (elapsed / total) * 100));
+
+          let customName = null;
+          let roomNumber = null;
+          if (slot.period) {
+            customName = state.customLabels[slot.period] || null;
+            roomNumber = state.roomNumbers[slot.period] || null;
+          }
+
+          let displayTitle = slot.label || '';
+          if (slot.type === 'passing') {
+            displayTitle = `Passing Period: ${slot.from} → ${slot.to}`;
+          }
+
+          return {
+            type: slot.type,
+            periodKey: slot.period || 'passing',
+            title: displayTitle,
+            customName,
+            roomNumber,
+            startMin: slot.start,
+            endMin: slot.end,
+            timeWindowStr: `${minTo12H(slot.start)} – ${minTo12H(slot.end)}`,
+            remainingSec: remaining,
+            totalSec: total,
+            elapsedSec: elapsed,
+            progressPct: progressPct,
+            slotIndex: i,
+            nextSlot: slots[i + 1] || null
+          };
+        }
+      }
+
+      return null;
+    }
+
+    function groupTeamsByStatus(currentMin, currentSec, schedule) {
+      const activeTeams = state.teamFocus === 'all' ? TEAMS : [state.teamFocus];
+      const teamStatusMap = {};
+
+      activeTeams.forEach(team => {
+        teamStatusMap[team] = evaluateTeamStatus(team, currentMin, currentSec, schedule);
+      });
+
+      const groups = [];
+      const visited = new Set();
+
+      activeTeams.forEach(team => {
+        if (visited.has(team)) return;
+        const statusA = teamStatusMap[team];
+        if (!statusA) return;
+
+        const matchingTeams = [team];
+        visited.add(team);
+
+        activeTeams.forEach(otherTeam => {
+          if (visited.has(otherTeam)) return;
+          const statusB = teamStatusMap[otherTeam];
+          if (!statusB) return;
+
+          const isSameType = statusA.type === statusB.type;
+          const isSameWindow = statusA.startMin === statusB.startMin && statusA.endMin === statusB.endMin;
+          const isSameTitle = statusA.title === statusB.title;
+
+          if (isSameType && isSameWindow && isSameTitle) {
+            matchingTeams.push(otherTeam);
+            visited.add(otherTeam);
+          }
+        });
+
+        let scopeLabel;
+        if (matchingTeams.length === TEAMS.length) {
+          scopeLabel = "All Teams";
+        } else if (matchingTeams.length === 1) {
+          scopeLabel = matchingTeams[0];
+        } else {
+          scopeLabel = matchingTeams.join(', ');
+        }
+
+        groups.push({
+          teams: matchingTeams,
+          scope: scopeLabel,
+          status: statusA
+        });
+      });
+
+      return groups;
+    }
+
+    /* -------------------------------------------------------------
+     * UI RENDERING HELPERS & COLOR THEMING
+     * ------------------------------------------------------------- */
+    function getStyleConfig(type) {
+      switch (type) {
+        case 'lunch':
+          return {
+            badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+            borderCard: 'border-emerald-500/30',
+            bgGlow: 'bg-emerald-950/20',
+            progressBar: 'bg-emerald-500',
+            accentText: 'text-emerald-400',
+            icon: 'utensils',
+            typeLabel: 'Lunch Period'
+          };
+        case 'passing':
+          return {
+            badgeColor: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+            borderCard: 'border-amber-500/30',
+            bgGlow: 'bg-amber-950/20',
+            progressBar: 'bg-amber-500',
+            accentText: 'text-amber-400',
+            icon: 'footprints',
+            typeLabel: 'Passing Period'
+          };
+        case 'class':
+        default:
+          return {
+            badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+            borderCard: 'border-blue-500/30',
+            bgGlow: 'bg-blue-950/20',
+            progressBar: 'bg-blue-500',
+            accentText: 'text-blue-400',
+            icon: 'book-open',
+            typeLabel: 'Academic Class'
+          };
+      }
+    }
+
+    function renderDashboard(groups) {
+      const container = document.getElementById('activeGroupsContainer');
+      if (!container) return;
+
+      if (groups.length === 0) {
+        container.innerHTML = `
+          <div class="p-8 text-center text-slate-400 bg-slate-850 rounded-2xl border border-slate-800">
+            <p>No active schedule blocks found for the selected team filter.</p>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '';
+
+      groups.forEach((group, idx) => {
+        const s = group.status;
+        const style = getStyleConfig(s.type);
+        const isOffHours = s.type === 'off_hours';
+        const timerStr = formatDuration(s.remainingSec);
+        const isUrgent = s.remainingSec > 0 && s.remainingSec <= 120;
+
+        html += `
+          <div class="relative bg-slate-850/90 rounded-2xl border ${style.borderCard} p-5 sm:p-7 shadow-lg transition-all duration-300">
+            
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
+              <div class="flex items-center gap-2.5">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider border ${style.badgeColor}">
+                  <i data-lucide="${style.icon}" class="w-3.5 h-3.5"></i>
+                  ${style.typeLabel}
+                </span>
+                <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                  ${group.scope}
+                </span>
+              </div>
+              <div class="text-xs font-mono font-bold text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span>${s.timeWindowStr || ''}</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-5 items-center">
+              
+              <div class="lg:col-span-7 space-y-2">
+                <h3 class="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                  ${s.title}
+                </h3>
+                
+                ${s.customName ? `
+                  <div class="inline-flex items-center gap-2 text-sm font-semibold px-3 py-1 rounded-lg bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                    <i data-lucide="tag" class="w-3.5 h-3.5 text-blue-400"></i>
+                    <span>Subject: ${s.customName}</span>
+                  </div>
+                ` : ''}
+
+                ${s.roomNumber ? `
+                  <div class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md bg-slate-800 text-slate-200 border border-slate-700">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5 text-blue-400"></i>
+                    <span>Room: ${s.roomNumber}</span>
+                  </div>
+                ` : ''}
+
+                ${s.subtitle ? `
+                  <p class="text-sm font-medium text-slate-400">${s.subtitle}</p>
+                ` : ''}
+
+                ${s.type === 'passing' && s.nextSlot ? `
+                  <p class="text-xs font-medium text-amber-300/80">Next start: <strong>${s.nextSlot.label || s.nextSlot.title}</strong> at ${minTo12H(s.nextSlot.start)}</p>
+                ` : ''}
+              </div>
+
+              <div class="lg:col-span-5 flex flex-col items-start lg:items-end justify-center">
+                ${!isOffHours ? `
+                  <div class="flex flex-col items-start lg:items-end">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1">
+                      <i data-lucide="hourglass" class="w-3.5 h-3.5"></i>
+                      Time Remaining
+                    </span>
+                    <div class="font-mono text-5xl sm:text-6xl font-black tracking-tight text-white flex items-baseline gap-1 ${isUrgent ? 'text-amber-400 pulse-glow' : ''}">
+                      ${timerStr}
+                      <span class="text-xs font-bold text-slate-400 uppercase tracking-widest font-sans">left</span>
+                    </div>
+                    ${isUrgent ? `
+                      <span class="mt-1 text-xs font-bold text-amber-400 flex items-center gap-1">
+                        <i data-lucide="bell" class="w-3.5 h-3.5 animate-bounce"></i> 2-min wrap-up warning
+                      </span>
+                    ` : ''}
+                  </div>
+                ` : `
+                  <div class="p-4 rounded-xl bg-slate-800/80 border border-slate-700 text-center w-full lg:w-auto">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-slate-400 mx-auto mb-1"></i>
+                    <div class="text-sm font-bold text-slate-200">Building Closed</div>
+                    <div class="text-xs text-slate-400">${s.subtitle || 'See schedule matrix below'}</div>
+                  </div>
+                `}
+              </div>
+
+            </div>
+
+            ${!isOffHours ? `
+              <div class="mt-6 space-y-2">
+                <div class="flex items-center justify-between text-xs font-medium text-slate-400">
+                  <span>Period Progress</span>
+                  <span class="font-mono font-bold text-slate-300">${Math.round(s.progressPct)}%</span>
+                </div>
+                <div class="w-full h-3.5 bg-slate-950/80 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                  <div class="h-full rounded-full transition-all duration-1000 ${style.progressBar} progress-animated" style="width: ${s.progressPct}%"></div>
+                </div>
+              </div>
+            ` : ''}
+
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function renderSmartboard(groups, timeInfo) {
+      const sbContainer = document.getElementById('sbHeroGroupContainer');
+      const sbBadge = document.getElementById('sbModeBadge');
+      const sbClock = document.getElementById('sbClock');
+      const sbDate = document.getElementById('sbCurrentDate');
+      if (!sbContainer) return;
+
+      if (sbBadge) {
+        sbBadge.textContent = state.scheduleMode === 'late' ? 'Late Start Schedule' : 'Normal Schedule';
+      }
+      if (sbClock) {
+        sbClock.textContent = timeInfo.formattedTime;
+      }
+      if (sbDate) {
+        sbDate.textContent = timeInfo.formattedDate;
+      }
+
+      let html = '';
+
+      groups.forEach(group => {
+        const s = group.status;
+        const style = getStyleConfig(s.type);
+        const isOffHours = s.type === 'off_hours';
+        const timerStr = formatDuration(s.remainingSec);
+        const isUrgent = s.remainingSec > 0 && s.remainingSec <= 120;
+
+        html += `
+          <div class="w-full bg-slate-900/90 rounded-3xl border-2 ${style.borderCard} p-8 md:p-12 shadow-2xl flex flex-col gap-6">
+            
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div class="flex items-center gap-3">
+                <span class="px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wider border ${style.badgeColor}">
+                  ${style.typeLabel}
+                </span>
+                <span class="px-4 py-1.5 rounded-full text-sm font-bold bg-slate-800 text-white border border-slate-700">
+                  ${group.scope}
+                </span>
+              </div>
+              <div class="font-mono text-lg font-bold text-slate-300">
+                ${s.timeWindowStr || ''}
+              </div>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center justify-between gap-8 py-4">
+              <div class="space-y-2 text-center md:text-left">
+                <h2 class="text-4xl md:text-6xl font-black tracking-tight text-white">
+                  ${s.title}
+                </h2>
+                ${s.customName ? `
+                  <div class="text-2xl md:text-3xl font-bold ${style.accentText}">
+                    ${s.customName}
+                  </div>
+                ` : ''}
+                ${s.roomNumber ? `
+                  <div class="text-lg font-semibold text-slate-300">
+                    Room: ${s.roomNumber}
+                  </div>
+                ` : ''}
+                ${s.subtitle ? `
+                  <div class="text-xl text-slate-400 font-medium">
+                    ${s.subtitle}
+                  </div>
+                ` : ''}
+              </div>
+
+              ${!isOffHours ? `
+                <div class="text-center md:text-right">
+                  <span class="text-xs uppercase font-bold tracking-widest text-slate-400 block mb-1">Countdown</span>
+                  <div class="font-mono text-7xl sm:text-8xl md:text-9xl font-black text-white ${isUrgent ? 'text-amber-400 pulse-glow' : ''}">
+                    ${timerStr}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+
+            ${!isOffHours ? `
+              <div class="w-full space-y-2">
+                <div class="w-full h-5 bg-slate-950 rounded-full overflow-hidden p-1 border border-slate-800">
+                  <div class="h-full rounded-full ${style.progressBar} progress-animated transition-all duration-1000" style="width: ${s.progressPct}%"></div>
+                </div>
+              </div>
+            ` : ''}
+
+          </div>
+        `;
+      });
+
+      sbContainer.innerHTML = html;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    /* -------------------------------------------------------------
+     * DAY PROGRESS CALCULATION & MATRIX PROGRESS ROW
+     * ------------------------------------------------------------- */
+    function getDayProgressData(timeInfo) {
+      const isLate = state.scheduleMode === 'late';
+      const schedule = isLate ? SCHEDULE_LATE_START : SCHEDULE_NORMAL;
+      const openMin = schedule.openTimeMin;
+      const closeMin = schedule.closeTimeMin;
+      const openSec = openMin * 60;
+      const closeSec = closeMin * 60;
+      const totalDaySec = closeSec - openSec;
+
+      const curSec = timeInfo.totalMinutes * 60 + timeInfo.seconds;
+      let elapsedSec = 0;
+      let remainingSec = totalDaySec;
+      let pct = 0;
+      let statusBadgeText = "In Session";
+      let statusBadgeClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+      let elapsedRemainingText = "";
+
+      if (timeInfo.dayOfWeek === 0 || timeInfo.dayOfWeek === 6) {
+        statusBadgeText = "Weekend (Closed)";
+        statusBadgeClass = "bg-slate-700/50 text-slate-400 border-slate-600";
+        pct = 0;
+        elapsedRemainingText = "Weekend • Classes resume Monday";
+      } else if (curSec < openSec) {
+        statusBadgeText = "Before School";
+        statusBadgeClass = "bg-slate-700/50 text-slate-400 border-slate-600";
+        pct = 0;
+        const untilStart = openSec - curSec;
+        elapsedRemainingText = `Starts in ${formatHoursMins(untilStart)} • Opens at ${minTo12H(openMin)}`;
+      } else if (curSec >= closeSec) {
+        statusBadgeText = "School Dismissed";
+        statusBadgeClass = "bg-blue-500/20 text-blue-300 border-blue-500/30";
+        pct = 100;
+        elapsedSec = totalDaySec;
+        remainingSec = 0;
+        elapsedRemainingText = `${formatHoursMins(totalDaySec)} completed • Dismissed at ${minTo12H(closeMin)}`;
+      } else {
+        elapsedSec = curSec - openSec;
+        remainingSec = Math.max(0, closeSec - curSec);
+        pct = Math.min(100, Math.max(0, (elapsedSec / totalDaySec) * 100));
+        statusBadgeText = "Classes In Session";
+        statusBadgeClass = "bg-emerald-500/20 text-emerald-300 border-emerald-500/30";
+        elapsedRemainingText = `${formatHoursMins(elapsedSec)} elapsed • ${formatHoursMins(remainingSec)} left until ${minTo12H(closeMin)}`;
+      }
+
+      return {
+        openMin,
+        closeMin,
+        pct: Math.round(pct),
+        elapsedRemainingText,
+        statusBadgeText,
+        statusBadgeClass,
+        isSession: curSec >= openSec && curSec < closeSec
+      };
+    }
+
+    function renderDayProgressRow(timeInfo) {
+      const rowContainer = document.getElementById('matrixDayProgressContainer');
+      if (!rowContainer) return;
+
+      const data = getDayProgressData(timeInfo);
+
+      rowContainer.innerHTML = `
+        <div class="mb-5 p-4 rounded-xl bg-slate-900/90 border border-slate-700/80 shadow-inner flex flex-col gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="inline-flex items-center justify-center p-1.5 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                <i data-lucide="gauge" class="w-4 h-4"></i>
+              </span>
+              <div>
+                <span class="text-xs font-bold uppercase tracking-wider text-slate-200">Overall School Day Progress</span>
+                <span class="text-[11px] text-slate-400 ml-1.5 hidden sm:inline">(${minTo12H(data.openMin)} – ${minTo12H(data.closeMin)})</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border ${data.statusBadgeClass}">
+                ${data.statusBadgeText}
+              </span>
+              <span class="font-mono text-base font-extrabold text-white">${data.pct}%</span>
+            </div>
+          </div>
+
+          <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-800">
+            <div class="h-full rounded-full transition-all duration-700 bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500 progress-animated" style="width: ${data.pct}%"></div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+            <span>${minTo12H(data.openMin)} start</span>
+            <span class="text-slate-300 font-mono">${data.elapsedRemainingText}</span>
+            <span>${minTo12H(data.closeMin)} dismissal</span>
+          </div>
+        </div>
+      `;
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    /* -------------------------------------------------------------
+     * FULL SCHEDULE MATRIX TABLE RENDERING
+     * ------------------------------------------------------------- */
+    function renderScheduleMatrix() {
+      const tableBody = document.getElementById('matrixTableBody');
+      const timeInfo = getCurrentTimeInfo();
+      if (!tableBody) return;
+
+      const isLate = state.scheduleMode === 'late';
+      const schedule = isLate ? SCHEDULE_LATE_START : SCHEDULE_NORMAL;
+
+      renderDayProgressRow(timeInfo);
+
+      let html = '';
+
+      if (isLate) {
+        // Universal Schedule Table
+        LATE_START_UNIVERSAL_SLOTS.forEach((slot) => {
+          const isPassing = slot.type === 'passing';
+          const isLive = timeInfo.totalMinutes >= slot.start && timeInfo.totalMinutes < slot.end;
+
+          let label = slot.label || `${slot.from} → ${slot.to}`;
+          let customName = slot.period ? (state.customLabels[slot.period] || '') : '';
+          let roomNumber = slot.period ? (state.roomNumbers[slot.period] || '') : '';
+
+          html += `
+            <tr class="border-b border-slate-800/60 ${isLive ? 'bg-blue-950/40 font-semibold' : (isPassing ? 'bg-slate-900/30' : 'hover:bg-slate-800/40')} transition-colors">
+              <td class="py-3 px-4 text-xs font-mono text-slate-300 whitespace-nowrap">
+                ${minTo12H(slot.start)} – ${minTo12H(slot.end)}
+              </td>
+              <td class="py-3 px-4 text-xs">
+                <span class="inline-flex items-center gap-1.5 ${isPassing ? 'text-amber-400' : 'text-slate-100'}">
+                  ${isLive ? '<span class="w-2 h-2 rounded-full bg-blue-400 animate-ping mr-1"></span>' : ''}
+                  ${label}
+                </span>
+              </td>
+              <td colspan="5" class="py-3 px-4 text-xs text-slate-300">
+                ${isPassing ? '<span class="text-slate-400 italic">Passing Period for All Teams</span>' : `
+                  <div class="flex items-center gap-3">
+                    <span class="font-medium text-white">${customName ? customName : 'Standard Period'}</span>
+                    ${roomNumber ? `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-800 text-slate-300 border border-slate-700">Rm: ${roomNumber}</span>` : ''}
+                  </div>
+                `}
+              </td>
+            </tr>
+          `;
+        });
+
+      } else {
+        // Normal Schedule
+        const rows = [
+          { label: "Advisory", start: timeToMin(8,55,false), end: timeToMin(9,15,false), key: "advisory", universal: true },
+          { label: "Passing", start: timeToMin(9,15,false), end: timeToMin(9,19,false), passing: true, universal: true },
+          { label: "1st Period", start: timeToMin(9,19,false), end: timeToMin(9,59,false), key: "p1", universal: true },
+          { label: "Passing", start: timeToMin(9,59,false), end: timeToMin(10,3,false), passing: true, universal: true },
+          { label: "2nd Period", start: timeToMin(10,3,false), end: timeToMin(10,43,false), key: "p2", universal: true },
+          { label: "Passing", start: timeToMin(10,43,false), end: timeToMin(10,47,false), passing: true, universal: true },
+          { label: "3rd Block / Staggered", start: timeToMin(10,47,false), end: timeToMin(11,27,false), staggered: "p3" },
+          { label: "4th Block / Staggered", start: timeToMin(11,21,false), end: timeToMin(12,11,true), staggered: "p4" },
+          { label: "5th Block / Staggered", start: timeToMin(12,5,true), end: timeToMin(12,55,true), staggered: "p5" },
+          { label: "6th Block / Staggered", start: timeToMin(12,49,true), end: timeToMin(1,39,true), staggered: "p6" },
+          { label: "7th Block / Staggered", start: timeToMin(1,33,true), end: timeToMin(2,13,true), staggered: "p7" },
+          { label: "Passing", start: timeToMin(2,13,true), end: timeToMin(2,17,true), passing: true, universal: true },
+          { label: "8th Period", start: timeToMin(2,17,true), end: timeToMin(2,57,true), key: "p8", universal: true },
+          { label: "Passing", start: timeToMin(2,57,true), end: timeToMin(3,0,true), passing: true, universal: true },
+          { label: "9th Period", start: timeToMin(3,0,true), end: timeToMin(3,40,true), key: "p9", universal: true }
+        ];
+
+        rows.forEach(r => {
+          const isLive = timeInfo.totalMinutes >= r.start && timeInfo.totalMinutes < r.end;
+          
+          if (r.universal) {
+            const customName = r.key ? (state.customLabels[r.key] || '') : '';
+            const roomNumber = r.key ? (state.roomNumbers[r.key] || '') : '';
+
+            html += `
+              <tr class="border-b border-slate-800/60 ${isLive ? 'bg-blue-950/40 font-semibold' : (r.passing ? 'bg-slate-900/20' : 'hover:bg-slate-800/30')} transition-colors">
+                <td class="py-2.5 px-4 text-xs font-mono text-slate-300 whitespace-nowrap">
+                  ${minTo12H(r.start)} – ${minTo12H(r.end)}
+                </td>
+                <td class="py-2.5 px-4 text-xs font-medium text-slate-200">
+                  <span class="inline-flex items-center gap-1.5 ${r.passing ? 'text-amber-400' : 'text-white'}">
+                    ${isLive ? '<span class="w-2 h-2 rounded-full bg-blue-400 animate-ping mr-1"></span>' : ''}
+                    ${r.label}
+                  </span>
+                </td>
+                <td colspan="5" class="py-2.5 px-4 text-xs text-slate-300">
+                  ${r.passing ? '<span class="text-slate-400 italic">Passing Period for All Teams</span>' : `
+                    <div class="flex items-center gap-3">
+                      <span class="font-medium text-white">${customName ? customName : 'Standard Period'}</span>
+                      ${roomNumber ? `<span class="px-2 py-0.5 rounded text-[11px] bg-slate-800 text-slate-300 border border-slate-700">Rm: ${roomNumber}</span>` : ''}
+                    </div>
+                  `}
+                </td>
+              </tr>
+            `;
+          } else {
+            // Staggered periods
+            html += `
+              <tr class="border-b border-slate-800/60 ${isLive ? 'bg-indigo-950/30 font-semibold' : 'hover:bg-slate-800/30'} transition-colors">
+                <td class="py-2.5 px-4 text-xs font-mono text-slate-300 whitespace-nowrap">
+                  ${minTo12H(r.start)} – ${minTo12H(r.end)}
+                </td>
+                <td class="py-2.5 px-4 text-xs font-semibold text-white">
+                  <span class="inline-flex items-center gap-1.5">
+                    ${isLive ? '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping mr-1"></span>' : ''}
+                    ${r.label}
+                  </span>
+                </td>
+                
+                <!-- 6A/6C -->
+                <td class="py-2 px-3 text-xs border-l border-slate-800/50">
+                  ${getTeamCellMarkup("6A / 6C", r.staggered, timeInfo.totalMinutes)}
+                </td>
+                <!-- 6B/7B -->
+                <td class="py-2 px-3 text-xs border-l border-slate-800/50">
+                  ${getTeamCellMarkup("6B / 7B", r.staggered, timeInfo.totalMinutes)}
+                </td>
+                <!-- 7A/7C -->
+                <td class="py-2 px-3 text-xs border-l border-slate-800/50">
+                  ${getTeamCellMarkup("7A / 7C", r.staggered, timeInfo.totalMinutes)}
+                </td>
+                <!-- 8B/8C -->
+                <td class="py-2 px-3 text-xs border-l border-slate-800/50">
+                  ${getTeamCellMarkup("8B / 8C", r.staggered, timeInfo.totalMinutes)}
+                </td>
+                <!-- 8A -->
+                <td class="py-2 px-3 text-xs border-l border-slate-800/50">
+                  ${getTeamCellMarkup("8A", r.staggered, timeInfo.totalMinutes)}
+                </td>
+              </tr>
+            `;
+          }
+        });
+      }
+
+      tableBody.innerHTML = html;
+    }
+
+    function getTeamCellMarkup(teamName, periodCode, curMin) {
+      const schedule = SCHEDULE_NORMAL.teams[teamName];
+      const slot = schedule.find(s => s.period === periodCode);
+      if (!slot) return '<span class="text-slate-500">-</span>';
+
+      const isLive = curMin >= slot.start && curMin < slot.end;
+      const isLunch = slot.type === 'lunch';
+      const customName = state.customLabels[slot.period] || '';
+      const roomNum = state.roomNumbers[slot.period] || '';
+
+      let cellClass = isLunch 
+        ? "bg-emerald-950/40 text-emerald-300 border border-emerald-500/30" 
+        : "bg-slate-800/60 text-slate-200 border border-slate-700/60";
+
+      if (isLive) {
+        cellClass = isLunch 
+          ? "bg-emerald-600/30 text-emerald-200 border-2 border-emerald-400 font-bold" 
+          : "bg-blue-600/30 text-blue-200 border-2 border-blue-400 font-bold";
+      }
+
+      return `
+        <div class="p-2 rounded-lg ${cellClass} transition-all">
+          <div class="text-[11px] font-bold uppercase tracking-wider flex items-center justify-between gap-1">
+            <span>${slot.label || slot.period}</span>
+            <span class="font-mono text-[10px] text-slate-400">${minTo12H(slot.start)}</span>
+          </div>
+          ${customName ? `<div class="text-xs font-semibold truncate text-white mt-0.5">${customName}</div>` : ''}
+          ${roomNum ? `<div class="text-[10px] text-slate-400 truncate">Rm: ${roomNum}</div>` : ''}
+        </div>
+      `;
+    }
+
+    /* -------------------------------------------------------------
+     * MAIN TICK CONTROLLER (Runs every second)
+     * ------------------------------------------------------------- */
+    function tick() {
+      const timeInfo = getCurrentTimeInfo();
+      const isLate = state.scheduleMode === 'late';
+      const schedule = isLate ? SCHEDULE_LATE_START : SCHEDULE_NORMAL;
+
+      // Update Header Clocks
+      const clockHeader = document.getElementById('liveClockDisplay');
+      const clockMobile = document.getElementById('liveClockMobile');
+      const dateDisplay = document.getElementById('liveDateDisplay');
+
+      if (clockHeader) clockHeader.textContent = timeInfo.formattedTime;
+      if (clockMobile) clockMobile.textContent = timeInfo.formattedTime;
+      if (dateDisplay) dateDisplay.textContent = timeInfo.formattedDate;
+
+      // Evaluate Team Groups
+      const groups = groupTeamsByStatus(timeInfo.totalMinutes, timeInfo.seconds, schedule);
+
+      // Render Dashboard & Smartboard
+      renderDashboard(groups);
+      renderSmartboard(groups, timeInfo);
+
+      // 2-Minute Warning Chime Trigger Check
+      groups.forEach(group => {
+        const s = group.status;
+        if (s && s.type !== 'off_hours' && s.remainingSec > 0 && s.remainingSec <= 120) {
+          const chimeKey = `${s.periodKey}-${s.startMin}`;
+          if (lastChimePlayedKey !== chimeKey) {
+            lastChimePlayedKey = chimeKey;
+            playWarningChime();
+            showToast(`2-minute warning: ${s.title} wraps up soon!`, 'info');
+          }
+        }
+      });
+
+      // Periodically update matrix progress row
+      const matrixContent = document.getElementById('matrixContent');
+      if (matrixContent && !matrixContent.classList.contains('hidden')) {
+        renderDayProgressRow(timeInfo);
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * EVENT HANDLERS & MODAL MANAGEMENT
+     * ------------------------------------------------------------- */
+    function updateScheduleModeUI(mode) {
+      const normalBtn = document.getElementById('modeNormalBtn');
+      const lateBtn = document.getElementById('modeLateBtn');
+      const badge = document.getElementById('activeScheduleBadge');
+      const subHeading = document.getElementById('matrixSubheading');
+
+      if (mode === 'late') {
+        if (normalBtn) normalBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200";
+        if (lateBtn) lateBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 bg-blue-600 text-white shadow-sm";
+        if (badge) badge.textContent = "Late Start Schedule (10:55 AM)";
+        if (subHeading) subHeading.textContent = "Currently viewing Late Start Schedule times";
+      } else {
+        if (normalBtn) normalBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 bg-blue-600 text-white shadow-sm";
+        if (lateBtn) lateBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 text-slate-400 hover:text-slate-200";
+        if (badge) badge.textContent = "Normal Schedule (8:55 AM)";
+        if (subHeading) subHeading.textContent = "Currently viewing Normal Schedule times";
+      }
+    }
+
+    function updateThemeIcon(theme) {
+      const icon = document.getElementById('themeIcon');
+      if (!icon) return;
+      if (theme === 'light') {
+        icon.setAttribute('data-lucide', 'moon');
+      } else {
+        icon.setAttribute('data-lucide', 'sun');
+      }
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function populateConfigModal() {
+      const container = document.getElementById('configPeriodsList');
+      const audioToggle = document.getElementById('configAudioToggle');
+      const teamFocus = document.getElementById('configTeamFocus');
+      if (!container) return;
+
+      if (audioToggle) audioToggle.checked = state.audioEnabled;
+      if (teamFocus) teamFocus.value = state.teamFocus;
+
+      let html = '';
+      PERIOD_KEYS.forEach(pk => {
+        const defaultLabel = DEFAULT_PERIOD_LABELS[pk];
+        const customVal = state.customLabels[pk] || '';
+        const roomVal = state.roomNumbers[pk] || '';
+
+        html += `
+          <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center p-3 rounded-xl bg-slate-850 border border-slate-750">
+            <div class="sm:col-span-4">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-300 block">${defaultLabel}</span>
+              <span class="text-[11px] text-slate-500 font-mono">${pk}</span>
+            </div>
+            <div class="sm:col-span-5">
+              <input type="text" 
+                data-period-label="${pk}" 
+                value="${customVal}" 
+                placeholder="e.g. Pre-Algebra, Biology..."
+                class="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500" />
+            </div>
+            <div class="sm:col-span-3">
+              <input type="text" 
+                data-period-room="${pk}" 
+                value="${roomVal}" 
+                placeholder="Rm 102"
+                class="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500" />
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+      updateShareLinkInput();
+    }
+
+    function updateShareLinkInput() {
+      const input = document.getElementById('shareableLinkInput');
+      if (!input) return;
+      try {
+        const payload = {
+          scheduleMode: state.scheduleMode,
+          customLabels: state.customLabels,
+          roomNumbers: state.roomNumbers,
+          audioEnabled: state.audioEnabled,
+          teamFocus: state.teamFocus,
+        };
+        const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+        const url = `${window.location.origin}${window.location.pathname}#config=${encoded}`;
+        input.value = url;
+      } catch (e) {
+        input.value = window.location.href;
+      }
+    }
+
+    /* -------------------------------------------------------------
+     * INITIALIZATION
+     * ------------------------------------------------------------- */
+    function initApp() {
+      loadSettings();
+
+      // Apply Initial Theme
+      if (state.theme === 'light') {
+        document.documentElement.classList.remove('dark');
+        updateThemeIcon('light');
+      } else {
+        document.documentElement.classList.add('dark');
+        updateThemeIcon('dark');
+      }
+
+      updateScheduleModeUI(state.scheduleMode);
+      renderScheduleMatrix();
+      tick();
+
+      // Start 1-second interval
+      setInterval(tick, 1000);
+
+      // Event: Schedule Mode Header Buttons
+      const normalBtn = document.getElementById('modeNormalBtn');
+      const lateBtn = document.getElementById('modeLateBtn');
+      const themeBtn = document.getElementById('themeToggleBtn');
+
+      if (normalBtn) {
+        normalBtn.addEventListener('click', () => {
+          state.scheduleMode = 'normal';
+          saveSettings();
+          updateScheduleModeUI('normal');
+          renderScheduleMatrix();
+          tick();
+          showToast("Switched to Normal Schedule", "info");
+        });
+      }
+
+      if (lateBtn) {
+        lateBtn.addEventListener('click', () => {
+          state.scheduleMode = 'late';
+          saveSettings();
+          updateScheduleModeUI('late');
+          renderScheduleMatrix();
+          tick();
+          showToast("Switched to Late Start Schedule (10:55 AM)", "info");
+        });
+      }
+
+      // Event: Toggle Schedule Matrix
+      const toggleMatrixBtn = document.getElementById('toggleMatrixBtn');
+      const matrixContent = document.getElementById('matrixContent');
+      const matrixChevron = document.getElementById('matrixChevron');
+      const matrixToggleText = document.getElementById('matrixToggleText');
+
+      if (toggleMatrixBtn && matrixContent) {
+        toggleMatrixBtn.addEventListener('click', () => {
+          const isHidden = matrixContent.classList.contains('hidden');
+          if (isHidden) {
+            matrixContent.classList.remove('hidden');
+            if (matrixChevron) matrixChevron.classList.add('rotate-180');
+            if (matrixToggleText) matrixToggleText.textContent = "Hide Schedule";
+            renderScheduleMatrix();
+          } else {
+            matrixContent.classList.add('hidden');
+            if (matrixChevron) matrixChevron.classList.remove('rotate-180');
+            if (matrixToggleText) matrixToggleText.textContent = "Show Schedule";
+          }
+        });
+      }
+
+      // Event: Smartboard / TV Mode Fullscreen
+      const openSbBtn = document.getElementById('openSmartboardBtn');
+      const exitSbBtn = document.getElementById('exitSmartboardBtn');
+      const sbView = document.getElementById('smartboardView');
+
+      function openSmartboard() {
+        sbView.classList.remove('hidden');
+        tick();
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      }
+
+      function closeSmartboard() {
+        sbView.classList.add('hidden');
+        if (document.exitFullscreen && document.fullscreenElement) {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+
+      if (openSbBtn) openSbBtn.addEventListener('click', openSmartboard);
+      if (exitSbBtn) exitSbBtn.addEventListener('click', closeSmartboard);
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sbView && !sbView.classList.contains('hidden')) {
+          closeSmartboard();
+        }
+      });
+
+      // Event: Theme Toggle
+      if (themeBtn) {
+        themeBtn.addEventListener('click', () => {
+          const isDark = document.documentElement.classList.contains('dark');
+          if (isDark) {
+            document.documentElement.classList.remove('dark');
+            state.theme = 'light';
+            updateThemeIcon('light');
+          } else {
+            document.documentElement.classList.add('dark');
+            state.theme = 'dark';
+            updateThemeIcon('dark');
+          }
+          saveSettings();
+        });
+      }
+
+      // Event: Configuration Modal Open/Close & Save
+      const openConfigBtn = document.getElementById('openConfigModalBtn');
+      const closeConfigBtn = document.getElementById('closeConfigModalBtn');
+      const cancelConfigBtn = document.getElementById('cancelConfigBtn');
+      const configModal = document.getElementById('configModal');
+      const saveConfigBtn = document.getElementById('saveConfigBtn');
+
+      if (openConfigBtn) {
+        openConfigBtn.addEventListener('click', () => {
+          populateConfigModal();
+          configModal.classList.remove('hidden');
+        });
+      }
+
+      function hideConfigModal() {
+        configModal.classList.add('hidden');
+      }
+
+      if (closeConfigBtn) closeConfigBtn.addEventListener('click', hideConfigModal);
+      if (cancelConfigBtn) cancelConfigBtn.addEventListener('click', hideConfigModal);
+
+      if (saveConfigBtn) {
+        saveConfigBtn.addEventListener('click', () => {
+          const audioToggle = document.getElementById('configAudioToggle');
+          const teamFocus = document.getElementById('configTeamFocus');
+
+          if (audioToggle) state.audioEnabled = audioToggle.checked;
+          if (teamFocus) state.teamFocus = teamFocus.value;
+
+          state.customLabels = {};
+          state.roomNumbers = {};
+
+          document.querySelectorAll('input[data-period-label]').forEach(inp => {
+            const pk = inp.getAttribute('data-period-label');
+            const val = inp.value.trim();
+            if (val) state.customLabels[pk] = val;
+          });
+
+          document.querySelectorAll('input[data-period-room]').forEach(inp => {
+            const pk = inp.getAttribute('data-period-room');
+            const val = inp.value.trim();
+            if (val) state.roomNumbers[pk] = val;
+          });
+
+          saveSettings();
+          renderScheduleMatrix();
+          tick();
+          hideConfigModal();
+          showToast("Settings saved successfully!", "success");
+        });
+      }
+
+      // Event: Test Chime Button
+      const testChimeBtn = document.getElementById('testChimeBtn');
+      if (testChimeBtn) {
+        testChimeBtn.addEventListener('click', () => {
+          playWarningChime();
+          showToast("Chime sound preview played", "info");
+        });
+      }
+
+      // Event: Generate / Copy Share Link
+      const generateShareLinkBtn = document.getElementById('generateShareLinkBtn');
+      if (generateShareLinkBtn) {
+        generateShareLinkBtn.addEventListener('click', () => {
+          updateShareLinkInput();
+          const input = document.getElementById('shareableLinkInput');
+          if (input) {
+            input.select();
+            navigator.clipboard.writeText(input.value).then(() => {
+              showToast("Configuration link copied to clipboard!", "success");
+            }).catch(() => {
+              showToast("Link generated in input field", "info");
+            });
+          }
+        });
+      }
+
+      // Event: Reset Defaults
+      const resetDefaultsBtn = document.getElementById('resetDefaultsBtn');
+      if (resetDefaultsBtn) {
+        resetDefaultsBtn.addEventListener('click', () => {
+          if (confirm("Reset all custom class names, room assignments, and audio preferences to original defaults?")) {
+            state.customLabels = {};
+            state.roomNumbers = {};
+            state.audioEnabled = true;
+            state.teamFocus = 'all';
+            saveSettings();
+            populateConfigModal();
+            renderScheduleMatrix();
+            tick();
+            showToast("Reset to standard defaults", "info");
+          }
+        });
+      }
+
+      // Event: Simulator Preset Buttons
+      const simStatusText = document.getElementById('simStatusText');
+      function setSimulatedTime(minutes, label) {
+        state.simulatedMinutes = minutes;
+        simStatusText.textContent = label;
+        simStatusText.className = 'text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 font-bold';
+        tick();
+        renderScheduleMatrix();
+        showToast(`Simulating time: ${minTo12H(minutes)}`, 'info');
+      }
+
+      document.getElementById('simPresetAdvisory')?.addEventListener('click', () => {
+        setSimulatedTime(timeToMin(9, 5, false), 'Simulated: Advisory (9:05 AM)');
+      });
+      document.getElementById('simPresetP2')?.addEventListener('click', () => {
+        setSimulatedTime(timeToMin(10, 15, false), 'Simulated: 2nd Period (10:15 AM)');
+      });
+      document.getElementById('simPresetP3Stagger')?.addEventListener('click', () => {
+        setSimulatedTime(timeToMin(11, 0, false), 'Simulated: Staggered Lunch (11:00 AM)');
+      });
+      document.getElementById('simPresetPassing')?.addEventListener('click', () => {
+        setSimulatedTime(timeToMin(11, 18, false), 'Simulated: Passing Period (11:18 AM)');
+      });
+      document.getElementById('simPresetP6Stagger')?.addEventListener('click', () => {
+        setSimulatedTime(timeToMin(1, 10, true), 'Simulated: Staggered Lunch (1:10 PM)');
+      });
+      document.getElementById('simPresetAfterSchool')?.addEventListener('click', () => {
+        setSimulatedTime(timeToMin(4, 0, true), 'Simulated: Closed (4:00 PM)');
+      });
+
+      document.getElementById('simResetLiveBtn')?.addEventListener('click', () => {
+        state.simulatedMinutes = null;
+        simStatusText.textContent = 'Live Device Time';
+        simStatusText.className = 'text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-medium';
+        tick();
+        renderScheduleMatrix();
+        showToast("Reverted to Live Device Clock", "info");
+      });
+
+      if (window.lucide) {
+        lucide.createIcons();
+      }
+    }
+
+    // Boot on DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
+
+  })();
+</script>
